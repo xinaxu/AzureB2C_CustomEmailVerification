@@ -1,47 +1,51 @@
-# AzureB2C_CustomEmailVerification
+# Azure Active Directory B2C Custom Email Address Verification
 ## General Design
-**Prerequisites: Custom Javascript and Custom Policy**
+**Prerequisites: Javascript Access and Custom Policy**
 
-To use custom email provider, you’ll have to set up your own email verification service. You can use Azure function as a start, use a cosmosDB or azure table as a storage for the passcode, and any third-party email service to send emails.
+[Azure Active Directory B2C](https://azure.microsoft.com/en-us/services/active-directory-b2c/) offers identity management solution to customers. In some of its built-in user flows such as password reset or user sign up, the email address needs to be verified through its built-in email verification system. This document provides a guidance of how to use your own email verification system to completely customize email verification experience.
 
-At the client-side, you can use custom Javascript to control the whole email verification experience:
-1. After the user has provided an email address, the client needs to call the verification service to send out the code via email.
-2. After the user has provided the code, the client needs to call the service to verify the code. Since Azure AD B2C needs to know if this email has been verified, the service also needs to return a verification token so later, the token can be verified with the your service from B2C.
+Note that the code in this document is for illustration only. It needs to be hardened against a set of threats such as DDOS, replay attack, request tempering, etc. If you chose to use Azure Function, you may put those API service behind an API manager such as Azure API Manager. That will easily give you throttling and authentication capabilities.
 
-At the B2C side, when persisting the email address to the directory, verify the address with your service by validating the verification token.
+First of all, you’ll have to set up your own Email Verifier, let's call it Contoso Email Verifier. You can use Azure function as a start, use Azure table as a storage for the passcode, and any third-party email service to send emails. In this example, we use (SendGrid)[https://sendgrid.com/] as a third-party email service.
+
+At the client-side, you can use your own Javascript to control the whole email verification experience:
+1. After the user has provided an email address, the client needs to call Contoso Email Verifier to send out the code via email.
+2. After the user has provided the code, the client needs to call Contoso Email Verifier to verify the code. Since Azure AD B2C needs to know if this email has been verified, the service also needs to return a verification token.
+
+At the B2C-side, the token can be verified as a service to service call to Contoso Email verifier. The endpoint for this request needs to be configured to only allow traffic from B2C service. In this example, we use Function authentication in Azure Function and save the credential in B2C policy files. 
 
 ### User Flow Chart
 ![alt text](/imgs/data_flow.png)
 
 ### UI Design
-1.	On self-asserted page, a custom Javascript needs to be used to control email verification experience.
-2.	There should be a verification token claim in the self asserted technical profile. The textbox for the claim should be hidden from the user. After verifying the code, this value should be filled.
-3.	Use original B2C Javascript to submit the form. This will also submit the verification token in the hidden textbox.
+1.	On the page to verify email address, a custom Javascript needs to be used to control email verification experience.
+2.	There should be a verification token claim in the B2C [self-asserted technical profile](https://docs.microsoft.com/en-us/azure/active-directory-b2c/self-asserted-technical-profile). The textbox for the claim should be hidden from the user. After verifying the code, this value should be filled.
+3.	Use original B2C Javascript to submit the form. This will also submit the verification token in the hidden textbox to allow B2C policies to verify the token using a [validation technical profile](https://docs.microsoft.com/en-us/azure/active-directory-b2c/validation-technical-profile) to call Contoso Email Verifier.
 
 ### User Flow
-1. Self-Asserted page
+1. Self-Asserted page where the user enters email address
   1. Enter Email address and click "Send a code"
-  2. Custom javascript sends ajax request to your email verification service
-    1. Request
+  2. Custom javascript sends ajax request to Contoso Email Verifier SendEmailVerification endpoint
+    1. What's in the Request
       1. Email address
       2. CorrelationId (you can get this from UserJourneyContextProvider)
-    2. Response
+    2. What's in the Response
       1. Verification token
   3. Javascript update the UI based on the ajax response
   4. Enter the code and click "Verify"
-  5. Custom javascript sends ajax request to your email verification service
-    1. Request
+  5. Custom javascript sends ajax request to Contoso Email Verifier VerifyCode endpoint
+    1. What's in the Request
       1. Email address
       2. CorrelationId
       3. Verification token
       4. Code
-    2. Response
+    2. What's in the Response
       1. Verification token
   6. Use custom Javascript to fill the hidden textbox with verification token
   7. Click submit
 2. Submit the form to Azure AD B2C
-  1. Use validation technical profile to invoke a restful call to your verification service to verify the token
-    1. Request
+  1. Use validation technical profile to invoke a restful call to Contoso Email Verifier ValidateEmailVerification endpoint to verify the token. This is a service to service call.
+    1. What's in the Request
       1. CorrelationId
       2. Email address
       3. Verification token
@@ -85,12 +89,12 @@ Please refer to the code in [SendEmailVerification.csx](SendEmailVerification.cs
 #### VerifyCode
 Please refer to the code in [VerifyCode.csx](VerifyCode.csx). This will verify the code with the entry stored in the Azure Table storage and send back a verification token for future validation. The type of the function is anonymous.
 #### ValidateEmailVerification
-Please refer to the code in [ValidateEmailVerification.csx](ValidateEmailVerification.csx). This will be invoked by Azure AD B2C to validate the verified email using the verification token. We use anonymous authentication as an example and you may use other type for the function.
+Please refer to the code in [ValidateEmailVerification.csx](ValidateEmailVerification.csx). This will be invoked by Azure AD B2C to validate the verified email using the verification token. The type of the function is Function and you need to save the access code.
 #### Enable CORS
 You also need to enable CORS for those Azure functions. Please refer to this [document](https://docs.microsoft.com/en-us/azure/azure-functions/functions-how-to-use-azure-function-app-settings#cors) for how to setup CORS. As an example, you can allow all origins by adding "\*" to the list.
 ### Setup Custom content
-Upload [custom_content.html](custom_content.html) to your blob storage and enable CORS and public access. See this [document](https://docs.microsoft.com/en-us/azure/active-directory-b2c/active-directory-b2c-reference-ui-customization) for more details.
+Upload [custom_content.html](custom_content.html) to your blob storage and enable CORS and public access. See this [document](https://docs.microsoft.com/en-us/azure/active-directory-b2c/active-directory-b2c-reference-ui-customization) for more details. Note the Ajax request urls in the content need to match your Azure Function endpoints.
 ### Setup Custom policies
-Upload [TRUSTFRAMEWORKBASE.xml](TRUSTFRAMEWORKBASE.xml), [TRUSTFRAMEWORKEXTENSIONS.xml](TRUSTFRAMEWORKEXTENSIONS.xml), [CUSTOMEMAILSIGNUP.xml](CUSTOMEMAILSIGNUP.xml) to your B2C tenant. Note, some of the values in the policy file needs to be modified to your own values.
+Upload [TRUSTFRAMEWORKBASE.xml](TRUSTFRAMEWORKBASE.xml), [TRUSTFRAMEWORKEXTENSIONS.xml](TRUSTFRAMEWORKEXTENSIONS.xml), [CUSTOMEMAILSIGNUP.xml](CUSTOMEMAILSIGNUP.xml) to your B2C tenant. Note, tenant name, Azure Function endpoints in the policy file needs to be modified to your own values.
 ### End to End Test
 Run the policy. If you've setup above correctly, you will see an example of email verification through SendGrid.
