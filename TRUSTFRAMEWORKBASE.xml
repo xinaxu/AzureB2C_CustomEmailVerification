@@ -474,7 +474,7 @@
           <Metadata>
             <Item Key="AuthenticationType">None</Item>
             <Item Key="SendClaimsIn">QueryString</Item>
-            <Item Key="ServiceUrl">https://<yourazurefunctionaccount>.azurewebsites.net/api/ValidateEmailVerification</Item>
+            <Item Key="ServiceUrl">https://<yourazurefunctionaccount>.azurewebsites.net/api/ValidateEmailVerification?code=yourazurefunctionaccesskey</Item>
           </Metadata>
           <InputClaims>
             <InputClaim ClaimTypeReferenceId="correlationId" />
