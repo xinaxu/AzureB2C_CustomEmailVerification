@@ -6,7 +6,7 @@
 
 Note that the code in this document is for illustration only. It needs to be hardened against a set of threats such as DDOS, replay attack, request tempering, etc. If you chose to use Azure Function, you may put those API service behind an API manager such as Azure API Manager. That will easily give you throttling and authentication capabilities.
 
-First of all, you’ll have to set up your own Email Verifier, let's call it Contoso Email Verifier. You can use Azure function as a start, use Azure table as a storage for the passcode, and any third-party email service to send emails. In this example, we use (SendGrid)[https://sendgrid.com/] as a third-party email service.
+First of all, you’ll have to set up your own Email Verifier, let's call it Contoso Email Verifier. You can use Azure function as a start, use Azure table as a storage for the passcode, and any third-party email service to send emails. In this example, we use [SendGrid](https://sendgrid.com/) as a third-party email service.
 
 At the client-side, you can use your own Javascript to control the whole email verification experience:
 1. After the user has provided an email address, the client needs to call Contoso Email Verifier to send out the code via email.
