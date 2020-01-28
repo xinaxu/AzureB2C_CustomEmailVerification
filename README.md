@@ -1,4 +1,7 @@
 # Azure Active Directory B2C Custom Email Address Verification
+## Deprecated
+Note this guidance is being deprecated in favor of the official support of 3rd party custom email [here](https://docs.microsoft.com/en-us/azure/active-directory-b2c/custom-email)
+
 ## General Design
 **Prerequisites: Javascript Access and Custom Policy**
 
